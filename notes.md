@@ -115,3 +115,163 @@ In ther services.ts file:
 Services have an ngInjectable({}) object.
 It'll be providedIn: 'root',
 We don't need to add them to the app.module.
+
+# routing
+add an unique id for each book
+When starting a new project and it asks if we want to include routing, we should start saying Yes.
+It will automatically add app-routing.module.ts
+
+(make sure to add imports at the top of the file)
+
+const appRoutes: Routes = [
+    { path: '', redirectTo: '/bookshelf', pathMatch: 'full' },
+    { path: '/bookshelf', component: BookshelfPageComponent },
+    { path: 'library', component: LibraryPageComponent }
+];
+
+@NgModule({
+    imports: [RouterModule.forRoot(appRoutes)],
+    exports: [RoterModule]
+})
+
+export class AppRoutingModule {}
+
+Then make sure to add to the app.module.ts file
+
+Then in the app.component HTML template we put the <router-outlet></router-outlet> where we want the different routes to be displayed.
+
+In the navigation component we don't need the event emitter and the output anymore. Instead we'll use routerLink on the anchor tags.
+routerLink="/bookshelf"
+routerLinkActive="active"
+
+Based on what's in the url, Angular looks inside the routing module and then renders the component for that path.
+
+Then in the book component HTML we'll add a router link with the book's id in order to dynamically update the route.
+[routerLink]="[book.id]"
+And we'll need a child route:
+{ path: '/bookshelf',
+    component: BookshelfPageComponent,
+    children: [{ path: ':id', component: SingleBookDeatilsComponent }] },
+Then we put another <router-outlet> in the bookshelf component. 
+
+Then we'll need to get the book details from an url instead of based on an event.
+We need to inject the route and the router into the component in the constructor.
+Inside a TS file, it doesn't have access to anything outside of itself. Outside properties and methods need to be injected inside the constructor.
+We can to subscribe to the parameters when the component loads, so we'll do it in the ngOnInit() {}
+
+ngOnInit() {
+    this.route.params.subscribe((params: Params) => {
+        const bookIdFromParams = +params['id'];
+
+        this.bookDeatils = this.bookshelfService.getBookById(bookIdFromParams);
+    });
+}
+
+[console.logs printing right in the code: console ninja extension]
+
+THen when we click on update book, we can navigate to a different route
+onUpdateBook() {
+this.router.navigate(['../', this.bookDetails.id, 'edit'], {
+    relativeTo: this.route
+})
+}
+Here we're saying go back a route, add the ID and then navigate relative to this route.
+Then we need to create a component that holds the form for editing a book.
+
+Then for the delete, we can say to go back a level in the routes. 
+this.router.navigate(['../'])
+
+
+We can reuse the same form for entering a new book or for editing an existing book.
+We can create a property on the single-book-form component called isEditingBook and set it equal to false as the default. Then we can inject the route into the constructor.
+
+constructor(private route: ActivatedRoute) {}
+
+ngOnInit() {
+    this.route.params.subscribe((params: Params) => {
+        const bookId = +params['id'];
+
+        this.isEditingBook = !!bookId;
+    });
+}
+
+This uses the bang bang operator. This is a boolean based on whether the variable exists. Instead, we could use an if/else or a ternary operator.
+
+Later, we'll learn about breaking our routing module into smaller routing modules.
+
+# Observables
+Changing event emitters to subjects.
+A subject is a special type of observable. 
+An observer (for example, a component) can be notified of changes, etc.
+
+Initially we've set up event emitters in the bookshelf service as cross-component communicators. 
+Angular doesn't recommend that. We should use observables.
+
+Event emitters are more for components (child to parent, etc) and not for services.
+
+When using Subjects instead of Event Emitters, we change emit to next.
+selectedBook = new Subject<Book>();
+
+this.bookListChanged.next(this.mySavedBooks.slice());
+
+We can make a notification component and put it at the bottom of our app component.
+
+<app-notification></app-notification>
+And in this component we can put an alert object. 
+
+In the TS file we need to inject the bookshelf service. We want the nofication component to subscribe to certain events at the start of its lifecycle, so we use ngOnInit().
+
+When we subscribe we pass it a callback function.
+
+Old way:
+this.bookshelfService.bookListChanged.subscirbe((books: Book[]) => {
+    console.log(books);
+})
+
+New way (something like this; look this up):
+this.bookshelfService.bookListChanged.subscribe({
+    next: () => {}
+    error: () =>
+})
+
+We'll want to pass up three kinds of info:
+books from the bookshelf
+action
+book we added or deleted
+
+in the bookshelf service:
+bookListChanged = new Subject<any>();
+
+addBook(newBook: Book) {
+    this.mySavedBooks.push(newBook);
+    this.bookListChanged.next({
+        myBooks: this.mySavedBooks.slice(),
+        action: 'ADD',
+        book: newBook
+    })
+}
+
+deleteBookById(id: number) {
+    const onDeleteBook = this.mySavedBooks.find(book => book.id === id);
+    const newBooks = this.mySavedBooks.filter((book) => book.id !== id);
+
+    this.mySavedBooks = newBooks;
+
+    this.bookListChanged.next({
+        myBooks: this.mySavedBooks.slice(),
+        action: 'DELETE',
+        book: onDeleteBook
+    })
+}
+
+Then we need to change what one of the function returns [I missed this part]. It's not returning an array of books, but a payload.
+
+
+
+this.bookshelfService.bookListChanged.subscribe(payload => {
+    if(payload.action === 'DELETE') {
+        alert(`You have deleted ${payload.book.title}.`)
+    } else if(payload.action === 'ADD') {
+        alert(`You have added ${payload.book.title}.`)
+    }
+})
