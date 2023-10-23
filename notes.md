@@ -275,3 +275,82 @@ this.bookshelfService.bookListChanged.subscribe(payload => {
         alert(`You have added ${payload.book.title}.`)
     }
 })
+
+# Forms
+(template-driven):
+These are going to be handled primarily in the HTML file.
+<form (ngSubmit)="onFormSubmit(templateFormRef)" #templateFormRef="ngForm">
+
+onFormSubmit(formObj: NgForm) {
+    console.log('submitted', formObj);
+}
+
+On our form elements (input, etc) we can add the attribute required
+We can add a reference #titleRef="ngModel"
+We can use *ngIf on a message that shows when one of the inputs is not filled in. 
+pristine: true (has not been clicked in or typed inside of)
+status: "VALID" (is a valid entry)
+touched: false (has not been clicked in or typed inside of)
+
+*ngIf="!titleRef.valid && titleRef.touched"
+
+required
+#authorRef="ngModel"
+
+We can use the disabled property on the button and only enable it if the whole form is valid.
+[disabled]="!templateFormRef.valid"
+
+In the css:
+form .ng-invalid.ng-touched {
+    border: 1px solid red;
+}
+
+In order to set a default value, we can set ngModel to a string.
+ngModel="mystery"
+
+Then to get the new book to show up in our bookshelf:
+The default value formHadBeenSubmitted needs to get changed to true. Then we update the default empty strings in the bookDetails object get updated with the form inputs.
+
+this.bookDetails.title = formObj.value.title
+
+formObj.reset();
+
+(Reactive approach):
+These are going tobe handled primarily inside the TS code. 
+We'll need to import the reactive module.
+
+In the TS file - 
+reactiveForm: FormGroup
+
+this.reactiveForm = new FormGroup({
+    title: new FormControl(null),
+    author: new FormControl(null),
+    genre: new FormControl('mystery')
+})
+
+Then we need to sync to the HTML template.
+We'll bind the form with property binding.
+
+<form [formGroup]="reactiveForm">...</form>
+
+Then we use the attribute formControlName on each input
+<input formControlName="title">
+
+onFormSubmit() {
+    console.log('Submitted', this.reactiveForm);
+}
+
+We don't need to pass the form object to the method here.
+
+In the form setup, we can add Validators.required
+this.reactiveForm = new FormGroup({
+    title: new FormControl(null, Validators: required),
+    author: new FormControl(null, Validators: required),
+    genre: new FormControl('mystery', Validators: required)
+})
+
+*ngIf="!reactiveForm.get('title').valid && reactiveForm.get('title').touched"
+
+[disabled]="!reactiveForm.valid"
+
+this.bookDetails.title = this.reactiveForm.value.title
