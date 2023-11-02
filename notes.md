@@ -354,3 +354,103 @@ this.reactiveForm = new FormGroup({
 [disabled]="!reactiveForm.valid"
 
 this.bookDetails.title = this.reactiveForm.value.title
+
+# routes and forms (review)
+the new book path and the edit book path go to the same component
+
+We can use ActivatedRoute to know which route we're on, then we can know that we want the form to be in edit mode. We can check the parameters (whether there's a book id). If the id exists we're in edit mode. If there isn't an id, we're on the add a book component and not edit mode.
+
+isEditMode: boolean = false;
+id: number = 0;
+
+constructor(private route: ActivatedRoute) {}
+
+ngOnIt(): void {
+    this.route.params.subscribe((params: Params) => {
+        this.id = +params['id];
+        this.isEditMode = params['id] != null;
+
+        if(this.isEditMode) {
+            this.bookDetails = this.bookshelfService.getBookById(this.id);
+            console.log(this.bookDetails)
+        }
+    })
+}
+
+We're saying if the id parameter is not empty, set isEditMode to true. (params['id] != null is the condition that makes isEditMode true)
+
+Then we want to inject the bookshelf service and use the get one book method.
+
+In the template we can bind the input to the book title property.
+[ngModel]="bookDetails.title"
+
+In the form TS file, in the submit function, we want to say if we're in edit mode, update the book; if we're not in edit mode, add the book to the bookshelf.
+
+In the bookshelf service, functions for add book and update book.
+
+addBook(newBook: Book) {
+    this.mySavedBooks.push(newBook);
+    this.bookListChanged.next(this.mySavedBooks.slice());
+}
+
+updateBook(updatedBook: Book) {
+    // step 1: find the index of book (in real life it'd have an id)
+    const nookIdx = this.mySavedBooks.findIndex(book => book.id === updatedBook.id)
+
+    // step 2: update book by index
+    this.mySavedBooks[bookIdx] = updatedBook;
+}
+
+In order to update the booklist on the left in real time when we edit a book, we need a Subject. We need to alert subscribers that a book has changed in the update book function.
+
+# pipes
+We can create a new pipe with the CLI
+ng g p shared/pipes/sort-books
+This will create a sort-books.pipe.ts file with the @Pipe({}) decorator and the implements PipeTransform with the transform method.
+
+export class SortBooksPipe implements PipeTransform {
+    transform(books: Book[], field: string): unknown {
+        books.sort((a: Book, b: Book) => {
+            if (a[field] < b[field]) {
+                return -1;
+            } else {
+                return 1;
+            }
+        });
+        return books;
+    }
+}
+
+Then in the HTML file, <div class="row" *ngFor="let book of mySavedBooks | sortBook: 'author'">
+
+The author string will be a parameter of the sortBook pipe transform method, and will be passed where we have the field: string.
+
+
+# HTTP requests
+API - allows applications to interact with each other
+REST api - sets a standard
+
+Usually there are two environments - production (live) and development. The development environment will have a testing database, etc.
+
+ng g environments
+Creates a folder in src with two files, environment.development.ts and environment.ts
+
+We can define configuration for the environment.
+
+export const environment = {
+    firebaseUrl: "string",
+    production: false
+}
+
+the other file (environment.ts) will have the configuration for production
+
+export const environment = {
+    firebaseUrl: 'string',
+    production: true
+}
+
+
+Then in the http.service.ts we'll set a const for the url:
+
+const FIREBASE_URL = environment.firebaseUrl
+
