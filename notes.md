@@ -454,3 +454,134 @@ Then in the http.service.ts we'll set a const for the url:
 
 const FIREBASE_URL = environment.firebaseUrl
 
+# AUTHENTICATION
+
+Save the Firebase web api key in our enviroment variables. Usually we'll have a different database for production and for development.
+
+firebaseWebAPI: 'key'
+
+Can write a signUpWithEmailPassword method because we might have other signup methods later. (Firebase allows us to signup with google or facebook, etc)
+
+We can pass the method an object, we can create an interface for that.
+
+export interface IAuthReqData {
+    email: string;
+    password: string;
+}
+
+Good idea to add validation at the beginning of each function.
+if (!authData.email || !authData.password) return;
+We'll want to later add validation like the email should have an @ symbol, etc.
+
+At the end of the url: `...signUp?key=${environment.firebaseWebAPI}`
+
+http.post('url', {
+    ...authData,
+    returnSecrueToken: true,
+})
+
+In the auth component:
+
+onAuthSubmit(form: NgForm) {
+    const { email, password } = form.value;
+
+    if (!form.valid || !email || !password) return;
+
+    if (this.isSignInMode) {
+        <!-- logic to sign in -->
+    } else {
+        this.authService.signupWithEmailPassword({
+            email,
+            pasword,
+        }).pipe(
+            tap((res) => {
+                console.log(res);
+            })
+        );
+    }
+}
+
+We need .pipe(), and we need to subscribe.
+tap() will not alter the data; it will just do something on the side.
+
+Then we need to store the user and the token that's being sent back. - we'll do this as a side effect
+
+If the observable is successful, if the user is able to signup or sign in, we'll want to reroute to the bookshelf page.
+(We'll need to inject the router into our auth component - in the constructor)
+If there's an error we'll want to display that to the user.
+Then on complete, we'll want to reset the form.
+
+this.errorMsg = res?.error?.error?.message || 'Whoops! An error occured.'
+
+
+We need to create a new BehaviorSubject, which can only store one thing at a time.
+currUser = new BehaviorSubject<User | null>(null);
+
+Then we'll have a User model (We'll want to keep this small - at least on the user side, since they'll get sent with every single request)
+
+export class User {
+    constructor(
+        public id: string,
+        public email: string,
+        private _token: string,
+        private _tokenExpDate: Date
+    ) {}
+
+    <!-- methods -->
+    public get token() {
+        <!-- ensure token exists and is not expired -->
+        if (!this._tokenExpDate || new Date() > this._tokenExpDate) return null;
+
+        return this._token
+    }
+}
+
+
+In the signup with email function, in the tap:
+tap((resData) => {
+    const { email, localId, idToken, expiresIn } = resData;
+
+    this.handleAuth(email, localId, idToken, +expiredIn)
+})
+
+In the auth service:
+
+private handleAuth(
+    email: string,
+    userId: string,
+    token: string,
+    expiresIn: number
+) {
+    <!-- create the expiration token -->
+    <!-- this will be for one hour -->
+    const expDate = new Date(
+        expiresIn * 1000 + new Date().getTime()
+    )
+
+    <!-- create the user -->
+    const newUser = new User(userId, email, token, expDate);
+
+    <!-- emit the new user through the behavior token -->
+    this.currUser.next(newUser);
+
+    <!-- store the user in local storage -->
+    localStorage.setItem('user-bookbased', JSON.stringify(newUser));
+}
+
+In order to update the navbar, we need to add inside of ngOnInit(){}, we want to subscribe to the curreUser observable.
+In order to use that, we need to inject the authService into the navigation.
+!! (bang bang) turns whatever is to the right of it to a truthy or falsey value.
+
+For the signout button we'll create a method in the auth service that removes the current user (next the current user to null)
+
+this.currUser.next(null);
+this.router.navigate(['auth']);
+
+Once we set up the auto signing and auto signout methods, we need to update the expiration timer for the token
+
+
+The authGuard inside of the notes is an injectable and is deprecated.
+The new way is to have it as a function. [canActivate]
+(This will be in the github repository.)
+
+We have to add the authGuard to any of the routes we want to be protected.
